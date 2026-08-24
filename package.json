@@ -1,0 +1,49 @@
+{
+  "name": "dsh-shinki-serial-monitor",
+  "version": "0.1.0",
+  "description": "DSH 底部面板串口监控（Serial Monitor）：端口检测/选择、HEX 与文本收发、多编码显示、毫秒级时间戳结构化日志；AI 可对接（serial_* agent 工具）+ OTA 二进制传输。对标 UCANFD serial_debug，参考 eclipse-cdt serial-monitor 双后端。",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-locale"
+      ],
+      "platform": "web"
+    }
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "serial",
+    "serialport",
+    "uart",
+    "serial-monitor",
+    "sidebar",
+    "agent-tools"
+  ],
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "serialport": "^12.0.0"
+  },
+  "scripts": {
+    "test": "node --test tests/"
+  }
+}
