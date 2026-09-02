@@ -10,8 +10,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createSerialService } from '../lib/serial-service.js';
 
-/** Build a fake `serialport` module shape usable by the service. */
-function fakeSerialportModule() {
+/** Build a fake `serialport` module shape usable by the service.
+ *  `listEntries` overrides the default port enumeration (default mirrors the
+ *  pre-occupancy fixtures: friendly-name ports without USB descriptors). */
+function fakeSerialportModule(listEntries) {
   const opened = new Map(); // path -> FakePort
   class FakePort {
     constructor(cfg) {
@@ -28,7 +30,7 @@ function fakeSerialportModule() {
     update(patch, cb) { Object.assign(this.cfg, patch); cb?.(null); }
     close(cb) { this.isOpen = false; cb?.(); this.emit('close'); }
   }
-  FakePort.list = async () => [
+  FakePort.list = async () => listEntries ?? [
     { path: 'COM3', friendlyName: 'USB-UART' },
     { path: 'COM7', friendlyName: '' },
   ];
@@ -188,4 +190,45 @@ test('opRecord appends agent query events (read/get_log)', async () => {
   assert.equal(events[events.length - 1].name, 'serial_read');
   assert.equal(events[events.length - 1].actor, 'agent');
   assert.match(events[events.length - 1].text, /50 行/);
+});
+
+test('list drops undefined descriptor fields → lossless JSON (macOS virtual ports)', async () => {
+  // Real macOS SerialPort.list() always contains two path-only virtual ports
+  // (tty.debug-console / tty.Bluetooth-Incoming-Port) beside the USB CDC one.
+  // Mapping them previously emitted own props with `undefined` values → the
+  // result could not round-trip JSON and dsh rejected it ("value is not
+  // lossless JSON", bug report 20260902).
+  const fake = fakeSerialportModule([
+    { path: '/dev/tty.debug-console' },
+    { path: '/dev/tty.Bluetooth-Incoming-Port' },
+    {
+      path: '/dev/tty.usbmodemCC0589692', manufacturer: 'CherryUSB',
+      serialNumber: 'CC058969', locationId: '00130000',
+      vendorId: '0d28', productId: '0204',
+    },
+  ]);
+  const { service } = makeService({ fake });
+  const ports = await service.list();
+  assert.equal(ports.length, 3);
+
+  // No own key holds undefined / NaN on any port…
+  for (const p of ports) {
+    for (const [k, v] of Object.entries(p)) {
+      assert.ok(v !== undefined && !(typeof v === 'number' && Number.isNaN(v)), `port ${p.path} key ${k} is ${String(v)}`);
+    }
+  }
+  // …so the array is lossless: JSON round trip is identity.
+  assert.deepEqual(JSON.parse(JSON.stringify(ports)), ports);
+
+  // Descriptor-less virtual ports keep only path + label (schema-optional keys omitted).
+  assert.deepEqual(ports[0], { path: '/dev/tty.debug-console', label: '/dev/tty.debug-console' });
+  assert.deepEqual(Object.keys(ports[1]).sort(), ['label', 'path']);
+
+  // Full-descriptor USB port keeps raw ids + parsed decimal ids.
+  assert.equal(ports[2].vendorId, '0d28');
+  assert.equal(ports[2].productId, '0204');
+  assert.equal(ports[2].manufacturer, 'CherryUSB');
+  assert.equal(ports[2].usbVendorId, 0x0d28);
+  assert.equal(ports[2].usbProductId, 0x0204);
+  assert.equal(Object.keys(ports[2]).length, 8); // path,label + 4 raw + 2 parsed ids
 });

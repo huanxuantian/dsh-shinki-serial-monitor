@@ -146,3 +146,39 @@ test('every tool result stays within its declared output schema (top-level keys)
     }
   }
 });
+
+test('serial_read/serial_get_log drop null level on TX/Q/AR lines (schema-safe)', async () => {
+  // The internal LogLine model stores level:null for non-RX directions, but the
+  // declared logLineSchema requires a string — real dsh-tools validation
+  // rejected the whole read result as soon as the log contained the TX echo of
+  // a written byte (found live 2026-09-02 while exercising the board menu).
+  // Level-less keys must be OMITTED (never undefined — that would fail the
+  // lossless-JSON boundary).
+  const svc = fakeService();
+  const withTxLines = (extra = {}) => ({ lines: [
+    { seq: 1, tsMs: 1, iso: 't1', dir: 'RX', level: 'I', text: 'boot ok', hex: '', bytes: 8 },
+    { seq: 2, tsMs: 2, iso: 't2', dir: 'TX', level: null, text: '1', hex: '31', bytes: 1 },
+    { seq: 3, tsMs: 3, iso: 't3', dir: 'Q', level: null, text: '?', hex: '3f', bytes: 1 },
+    { seq: 4, tsMs: 4, iso: 't4', dir: 'AR', level: null, text: 'auto', hex: '61 75', bytes: 4 },
+  ], ...extra });
+  svc.readLines = async () => withTxLines();
+  svc.getLog = async () => withTxLines({ total: 4 });
+  const defs = await defineSerialTools(svc);
+  const readTool = defs.find((d) => d.name === 'serial_read');
+  const logTool = defs.find((d) => d.name === 'serial_get_log');
+
+  for (const tool of [readTool, logTool]) {
+    const v = await tool.execute({ sessionId: 's1' });
+    assert.equal(v.lines.length, 4);
+    assert.equal(v.lines[0].level, 'I');          // RX keeps its level
+    for (const l of v.lines.slice(1)) {
+      assert.ok(!('level' in l), `${tool.name} line still carries level`);
+      assert.ok(l.dir !== 'RX');
+      // lossless: no own key holds undefined / NaN
+      for (const [k, val] of Object.entries(l)) {
+        assert.ok(val !== undefined && !(typeof val === 'number' && Number.isNaN(val)), `${tool.name} key ${k} is ${String(val)}`);
+      }
+    }
+    assert.deepEqual(JSON.parse(JSON.stringify(v)), v); // lossless JSON round trip
+  }
+});
