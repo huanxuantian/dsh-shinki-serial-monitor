@@ -10,8 +10,8 @@ function fakeService() {
     async open(sessionId, path, opts, extra) { calls.push(['open', sessionId, path, opts, extra]); return { sessionId, opened: true, opts, info: { path }, owner: extra?.owner }; },
     async stats() { calls.push(['stats']); return { sessions: [] }; },
     async write(sessionId, bytes, dir) { calls.push(['write', sessionId, Array.from(bytes), dir]); return { ok: true, bytes: bytes.length, tsMs: 1 }; },
-    async readLines(sessionId, limit) { calls.push(['readLines', sessionId, limit]); return { lines: [{ seq: 1, tsMs: 1, text: 'hi', dir: 'RX', level: 'I', bytes: 2 }] }; },
-    async getLog(sessionId, opts) { calls.push(['getLog', sessionId, opts]); return { lines: [], total: 0 }; },
+    async readLines(sessionId, limit) { calls.push(['readLines', sessionId, limit]); return { lines: [{ seq: 1, tsMs: 1, text: 'hi', dir: 'RX', level: 'I', bytes: 2 }], hexMode: false }; },
+    async getLog(sessionId, opts) { calls.push(['getLog', sessionId, opts]); return { lines: [], total: 0, hexMode: false }; },
     async close(sessionId) { calls.push(['close', sessionId]); return { ok: true, closed: true, notify: { delivered: true } }; },
   };
 }
@@ -181,4 +181,37 @@ test('serial_read/serial_get_log drop null level on TX/Q/AR lines (schema-safe)'
     }
     assert.deepEqual(JSON.parse(JSON.stringify(v)), v); // lossless JSON round trip
   }
+});
+
+test('serial_read/get_log surface hexMode and render hex bodies for HEX-mode sessions', async () => {
+  const svc = fakeService();
+  const line = { seq: 1, tsMs: 1, iso: 't', dir: 'RX', level: 'I', text: '$%U\u0000d', hex: '24 25 55 00 64', bytes: 5 };
+  svc.readLines = async () => ({ lines: [line], hexMode: true });
+  svc.getLog = async () => ({ lines: [line], total: 1, hexMode: true });
+  const defs = await defineSerialTools(svc);
+  const readTool = defs.find((d) => d.name === 'serial_read');
+  const logTool = defs.find((d) => d.name === 'serial_get_log');
+
+  // execute surfaces hexMode as a boolean (schema-safe, lossless)
+  const v1 = await readTool.execute({ sessionId: 's1' });
+  assert.equal(v1.hexMode, true);
+  assert.equal(v1.lines[0].hex, '24 25 55 00 64');
+  const v2 = await logTool.execute({ sessionId: 's1' });
+  assert.equal(v2.hexMode, true);
+  assert.equal(v2.lines[0].hex, '24 25 55 00 64');
+
+  // renders show the hex bytes (+ byte count) instead of decoded mojibake text
+  const blocks = readTool.output.render({ sessionId: 's1' }, { lines: [line], hexMode: true });
+  assert.ok(blocks[0].text.includes('24 25 55 00 64'), blocks[0].text);
+  assert.ok(blocks[0].text.includes('（5B）'), blocks[0].text);
+  assert.ok(!blocks[0].text.includes('$%U'), blocks[0].text);
+});
+
+test('serial_read renders decoded text when the session is NOT in HEX mode', async () => {
+  const svc = fakeService();
+  const defs = await defineSerialTools(svc);
+  const readTool = defs.find((d) => d.name === 'serial_read');
+  const blocks = readTool.output.render({ sessionId: 's1' }, { lines: [{ tsMs: 1, dir: 'RX', level: 'I', text: 'boot ok', hex: '62 6f 6f 74 20 6f 6b', bytes: 7 }], hexMode: false });
+  assert.ok(blocks[0].text.includes('boot ok'), blocks[0].text);
+  assert.ok(!blocks[0].text.includes('62 6f'), blocks[0].text);
 });

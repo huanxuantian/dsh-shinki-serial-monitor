@@ -2,7 +2,7 @@
 
 DSH 底部面板**串口监控（Serial Monitor）**插件：端口检测/选择、HEX 与文本收发、多编码显示、**毫秒级时间戳结构化日志**；AI 可对接（`serial_*` agent 工具）+ OTA 二进制传输。功能对标 `UCANFD/tool/serial_debug`，参考 `eclipse-cdt-cloud/vscode-serial-monitor` 的双后端分层。
 
-**当前版本：v0.2.0（M0+M1 + 串口占用视图，issue #4；2026-09-02 真实环境验证 OK）**
+**当前版本：v0.2.1（HEX 模式会话输出十六进制：serial_open hex:true 后，serial_read / serial_get_log 正文直接显示字节 HEX + 字节数，便于抓取分析二进制流）**
 
 - **双后端**：浏览器 **Web Serial API**（M0，零原生依赖，NW.js/Chromium 桌面壳可用）+ **host `serialport`**（M1 核心数据面，agent 工具 + 完整串口参数）。
 - **默认底部面板打开**：经 `ctx.betterSidebar.registerTab` 注册（两个 Tab：串口监视器 + 串口占用），首次打开自动搬移到底部面板（`tab.meta.dockedBottom` 门控一次）。
