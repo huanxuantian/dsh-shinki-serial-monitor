@@ -4,6 +4,8 @@ DSH 底部面板**串口监控（Serial Monitor）**插件：端口检测/选择
 
 **当前版本：v0.2.2**（v0.2.1 起 HEX 模式会话正文直接输出字节 HEX + 字节数，便于抓取分析二进制流；v0.2.2 为版本号提升与面板配色加固）
 
+> 代码托管：**主库** [GitHub](https://github.com/huanxuantian/dsh-shinki-serial-monitor) ｜ **备用库** [自建 Git（cpolar 隧道）](https://shinkidocker.cpolar.cn/huanxuantian/dsh-shinki-serial-monitor)（详见「安装 → 仓库地址」）
+
 - **双后端**：浏览器 **Web Serial API**（M0，零原生依赖，NW.js/Chromium 桌面壳可用）+ **host `serialport`**（M1 核心数据面，agent 工具 + 完整串口参数）。
 - **默认底部面板打开**：经 `ctx.betterSidebar.registerTab` 注册（两个 Tab：串口监视器 + 串口占用），首次打开自动搬移到底部面板（`tab.meta.dockedBottom` 门控一次）。
 - **结构化毫秒日志**：`LogLine{seq, tsMs, iso, dir, level, text, hex, bytes}` 为 UI 与 agent 共用模型（总目标载体）。
@@ -17,8 +19,11 @@ DSH 底部面板**串口监控（Serial Monitor）**插件：端口检测/选择
 # 从 npm 安装（发布后）
 dsh plugin --profile web add dsh-shinki-serial-monitor
 
-# 直接从 GitHub 安装
+# 从主库 GitHub 安装
 dsh plugin --profile web add github:huanxuantian/dsh-shinki-serial-monitor
+
+# 从备用库安装（GitHub 访问不畅时；同一份代码，同一个 main）
+dsh plugin --profile web add git+https://shinkidocker.cpolar.cn/huanxuantian/dsh-shinki-serial-monitor.git
 
 # 本地开发（link: 方式：改完重启 dsh web 生效）
 dsh plugin --profile web add link:/绝对路径/dsh-shinki-serial-monitor
@@ -28,6 +33,23 @@ dsh plugin --profile web add link:/绝对路径/dsh-shinki-serial-monitor
 
 host 后端（M1）需要 `serialport`（原生模块）：未安装或不可用时插件**自动降级为仅 Web Serial**；
 若包管理器默认拦截原生模块的构建脚本，按其提示放行该依赖的构建即可。
+
+### 仓库地址
+
+| 用途 | 地址 |
+|---|---|
+| 主库（GitHub） | <https://github.com/huanxuantian/dsh-shinki-serial-monitor> |
+| 备用库（自建 Git，cpolar 隧道） | <https://shinkidocker.cpolar.cn/huanxuantian/dsh-shinki-serial-monitor> |
+
+两处内容一致（同一个 `main` 分支；以主库为准）。克隆或换源：
+
+```sh
+git clone https://github.com/huanxuantian/dsh-shinki-serial-monitor.git            # 主库
+git clone https://shinkidocker.cpolar.cn/huanxuantian/dsh-shinki-serial-monitor.git # 备用库
+git remote set-url origin https://shinkidocker.cpolar.cn/huanxuantian/dsh-shinki-serial-monitor.git  # 只换抓取源
+```
+
+> 备用库走自建隧道，域名/IP 可能变化；长期不可用时以主库为准。
 
 ## 卸载
 
