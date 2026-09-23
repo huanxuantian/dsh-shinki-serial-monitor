@@ -1,8 +1,8 @@
 # dsh-shinki-serial-monitor
 
-DSH 底部面板**串口监控（Serial Monitor）**插件：端口检测/选择、HEX 与文本收发、多编码显示、**毫秒级时间戳结构化日志**；AI 可对接（`serial_*` agent 工具）+ OTA 二进制传输。功能对标 `UCANFD/tool/serial_debug`，参考 `eclipse-cdt-cloud/vscode-serial-monitor` 的双后端分层。
+DSH 底部面板**串口监控（Serial Monitor）**插件：端口检测/选择、HEX 与文本收发、多编码显示、**毫秒级时间戳结构化日志**；AI 可对接（`serial_*` agent 工具）+ OTA 二进制传输。功能对标常见的串口调试上位机，参考 `eclipse-cdt-cloud/vscode-serial-monitor` 的双后端分层。
 
-**当前版本：v0.2.1（HEX 模式会话输出十六进制：serial_open hex:true 后，serial_read / serial_get_log 正文直接显示字节 HEX + 字节数，便于抓取分析二进制流）**
+**当前版本：v0.2.2**（v0.2.1 起 HEX 模式会话正文直接输出字节 HEX + 字节数，便于抓取分析二进制流；v0.2.2 为版本号提升与面板配色加固）
 
 - **双后端**：浏览器 **Web Serial API**（M0，零原生依赖，NW.js/Chromium 桌面壳可用）+ **host `serialport`**（M1 核心数据面，agent 工具 + 完整串口参数）。
 - **默认底部面板打开**：经 `ctx.betterSidebar.registerTab` 注册（两个 Tab：串口监视器 + 串口占用），首次打开自动搬移到底部面板（`tab.meta.dockedBottom` 门控一次）。
@@ -11,15 +11,23 @@ DSH 底部面板**串口监控（Serial Monitor）**插件：端口检测/选择
 
 ## 安装
 
-```sh
-# 本地开发（link: 方式）
-dsh plugin --profile web add link:/绝对路径/plugin/web/dsh-shinki-serial-monitor
+前置：宿主需已安装 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar)（提供 `ctx.betterSidebar` 面板注册服务）。
 
-# 或从 npm 安装（发布后）
+```sh
+# 从 npm 安装（发布后）
 dsh plugin --profile web add dsh-shinki-serial-monitor
+
+# 直接从 GitHub 安装
+dsh plugin --profile web add github:huanxuantian/dsh-shinki-serial-monitor
+
+# 本地开发（link: 方式：改完重启 dsh web 生效）
+dsh plugin --profile web add link:/绝对路径/dsh-shinki-serial-monitor
 ```
 
-M1 host 后端需 `serialport@^12`（原生模块，走 plugins-ensure `npm install --prefix` + npmmirror 预编译二进制；未安装时插件优雅降级为仅 Web Serial）。
+安装后重启 `dsh web`。**仅支持 web profile**。
+
+host 后端（M1）需要 `serialport`（原生模块）：未安装或不可用时插件**自动降级为仅 Web Serial**；
+若包管理器默认拦截原生模块的构建脚本，按其提示放行该依赖的构建即可。
 
 ## 卸载
 
@@ -43,7 +51,7 @@ dsh plugin --profile web remove dsh-shinki-serial-monitor
 ## 测试
 
 ```sh
-node --test            # 在插件目录（49 用例：codecs/levels/buffer/presets/logline/tools/serial-service）
+node --test            # 在插件目录（53 用例：codecs/levels/buffer/presets/logline/tools/serial-service）
 ```
 
 ## 已知限制
@@ -54,8 +62,11 @@ node --test            # 在插件目录（49 用例：codecs/levels/buffer/pres
 - **TX 编码**：`TextEncoder` 仅支持 UTF-8——发送侧 GBK/BIG5 等回退 UTF-8（接收解码全覆盖）；中文 GBK 发送需 `iconv-lite`（后续）。
 - **换波特率**：Web Serial 需关闭重开（UI `reopen()` 封装）；host 后端支持运行时 `update`。
 - **M1 待接线**：`/shinki-serial/ws` WebSocket 流式推送未接线（当前 HTTP 轮询；监听区 300ms 轮询 `read` 增量拉取）。
-- **OTA（M4）**：`serial_send_file` / XMODEM / YMODEM 未实现，见 `doc/设计-串口监控插件.md`。
+- **OTA（M4）**：`serial_send_file` / XMODEM / YMODEM 未实现（后续里程碑）。
 
-## 设计文档
+## 设计要点
 
-`doc/设计-串口监控插件.md`（项目 doc/ 下）：目标（G1 agent 可调用 / G2 OTA / G3 快速预览）、架构、里程碑 M0–M4、ADR。
+- 目标：G1 agent 可调用（`serial_*` 工具） / G2 OTA 二进制传输 / G3 快速预览（面板即时收发）。
+- 分层：浏览器半包（Web Serial + 面板）与 host 半包（`serialport` + agent 工具 + 会话占用/回传）各自可独立降级；
+  两者共用同一份结构化日志模型 `LogLine`（见「架构」）。
+- 里程碑：M0 Web Serial → M1 host 后端与 agent 工具 → M2 编码/级别/预设 → M3 占用视图与动作回传 → M4 OTA（未完成）。
