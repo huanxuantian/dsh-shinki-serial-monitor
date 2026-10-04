@@ -92,3 +92,10 @@ node --test            # 在插件目录（53 用例：codecs/levels/buffer/pres
 - 分层：浏览器半包（Web Serial + 面板）与 host 半包（`serialport` + agent 工具 + 会话占用/回传）各自可独立降级；
   两者共用同一份结构化日志模型 `LogLine`（见「架构」）。
 - 里程碑：M0 Web Serial → M1 host 后端与 agent 工具 → M2 编码/级别/预设 → M3 占用视图与动作回传 → M4 OTA（未完成）。
+
+## 相关路线图（依赖提示）
+
+本插件与第三方 `dsh-better-sidebar` 有**服务依赖**（激活时 `inject` 该服务，缺失会 `pending`）。
+社区计划由 **`dsh-shinki-sidebar-tools`** 逐步**接替 `dsh-better-sidebar` 的部分能力**
+（背景：第三方版本兼容风险 + 官方右侧边栏视图可达性缺口；目标：禁用它后视图仍可用）。
+完整计划与分步判定标准见 `../dsh-shinki-sidebar-tools/README.md` 的「路线图」小节。
