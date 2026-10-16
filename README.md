@@ -13,6 +13,46 @@ DSH 底部面板**串口监控（Serial Monitor）**插件：端口检测/选择
 
 ## 安装
 
+### 在官方 DSH 桌面端安装（推荐路径，已在 Windows 实测）
+
+**先确定该客户端启动的是哪个 profile —— 不要用 agent shell 里的 `DSH_HOME` / `DSH_PROFILE_DIR` 判断。**
+官方 DSH 桌面端的启动代码写死了它用的 profile（`@deepseek-ai/dsh-desktop-host/lib/index.js` 的 `main()`）：
+
+```js
+const profile = loadProfileDirectory("dsh", projectDir, installAnchor);
+const application = runProfile({ profile: "desktop", args: ["--no-open", "--port", "19387"] });
+```
+
+即目标是 `~/.dsh/profiles/desktop`（`%USERPROFILE%\.dsh\profiles\desktop`）。机器上若还留着旧的可移植
+（EAC）实例，它用的是另外的 profile（如 `web-desktop`），装到那里对官方客户端完全无效。
+
+```powershell
+# 1) 先放行原生模块的构建脚本，否则 pnpm 会以 ERR_PNPM_IGNORED_BUILDS 让整条安装失败
+$profileDir = "$env:USERPROFILE\.dsh\profiles\desktop"
+@"
+allowBuilds:
+  '@serialport/bindings-cpp': true
+"@ | Add-Content "$profileDir\pnpm-workspace.yaml"
+
+# 2) 用客户端自带的 dsh 安装；包名会被自动写进该 profile 的 dsh.profile.bundles
+& 'E:\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd' plugin --profile desktop add `
+  file:E:\path\to\dsh-shinki-serial-monitor
+```
+
+要点：
+
+- **`serialport` 的原生构建必须先放行**（见上）。只装 JS 依赖时插件会**自动降级为仅 Web Serial**
+  （host 后端不可用），表现为 agent 的 `serial_*` 工具报后端不可用。
+- **验证原生绑定真的可用**：`serial_list_ports` 应能枚举出本机串口（实测返回 COM 端口）；
+  Node 侧等价检查是从 profile 目录加载 `serialport` 后调用 `SerialPort.list()`。
+- **登记机制**：`dsh plugin add` 把包名追加到 profile 的 `package.json` → `dsh.profile.bundles`，
+  插件自带的 `cordis.patch.yml`（`dsh.bundle.patch`）作为 bundle 层生效。这**不同于**手工往
+  `cordis.patch.yml` 写 `insert` roster 行（设置页插件管理器用的是那种），只写 roster 不会被 Loader 挂载。
+- **生效**：官方客户端是**热挂载**的 —— 装完立刻在运行中的会话里出现 `serial_*` 工具，通常**不需要重启**。
+- **卸载**：`dsh plugin --profile desktop remove dsh-shinki-serial-monitor`。
+
+### 通用安装（npm / git / 本地 link）
+
 前置：宿主需已安装 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar)（提供 `ctx.betterSidebar` 面板注册服务）。
 
 ```sh
