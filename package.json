@@ -1,6 +1,6 @@
 {
   "name": "dsh-shinki-serial-monitor",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "DSH 底部面板串口监控（Serial Monitor）：端口检测/选择、HEX 与文本收发、多编码显示、毫秒级时间戳结构化日志；AI 可对接（serial_* agent 工具）+ OTA 二进制传输。对标 UCANFD serial_debug，参考 eclipse-cdt serial-monitor 双后端。",
   "type": "module",
   "main": "lib/index.js",
